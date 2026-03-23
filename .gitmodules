@@ -1,0 +1,15 @@
+[submodule "mitogen"]
+	path = mitogen
+	url = https://github.com/mitogen-hq/mitogen.git
+[submodule "inventory"]
+	path = inventory
+	url = git@github.com:techolsy/ansible-inventory.git
+[submodule "collections/ansible_collections/ansible/netcommon"]
+	path = collections/ansible_collections/ansible/netcommon
+	url = https://github.com/ansible-collections/ansible.netcommon.git
+[submodule "collections/ansible_collections/ansible/posix"]
+	path = collections/ansible_collections/ansible/posix
+	url = https://github.com/ansible-collections/ansible.posix.git
+[submodule "collections/ansible_collections/ansible/utils"]
+	path = collections/ansible_collections/ansible/utils
+	url = https://github.com/ansible-collections/ansible.utils.git
