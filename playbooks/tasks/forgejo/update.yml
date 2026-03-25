@@ -1,0 +1,53 @@
+---
+- block:
+
+    - name: Download forgjo
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: /tmp/{{ item.name }}
+        mode: "{{ item.mode }}"
+      loop:
+        - url: https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64
+          name: forgejo-{{ forgejo_version }}-linux-amd64
+          mode: "0755"
+        - url: https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64.sha256
+          name: forgejo-{{ forgejo_version }}-linux-amd64.sha256
+          mode: "0644"
+
+    - name: Verify shasum
+      ansible.builtin.command:
+        cmd: /usr/bin/sha256sum -c forgejo-{{ forgejo_version }}-linux-amd64.sha256
+      args:
+        chdir: /tmp
+      changed_when: false
+
+    - name: Copy forgejo to /usr/local/bin
+      ansible.builtin.copy:
+        src: /tmp/forgejo-{{ forgejo_version }}-linux-amd64
+        dest: /usr/local/bin/forgejo
+        mode: 0755
+        remote_src: true
+
+  always:
+
+    - name: Remove /tmp/forgejo
+      ansible.builtin.file:
+        dest: /tmp/{{ item }}
+        state: absent
+      loop:
+        - forgejo-{{ forgejo_version }}-linux-amd64
+        - forgejo-{{ forgejo_version }}-linux-amd64.sha256
+
+- name: Start forgejo service
+  ansible.builtin.systemd_service:
+    name: forgejo.service
+    state: restarted
+
+- name: Set local facts
+  ansible.builtin.copy:
+    content: "{{ _content | ansible.builtin.to_json }}"
+    dest: /etc/ansible/facts.d/forgejo.fact
+    mode: 0644
+  vars:
+    _content:
+      version: "{{ forgejo_version }}"

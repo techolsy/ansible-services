@@ -13,3 +13,9 @@
 [submodule "collections/ansible_collections/ansible/utils"]
 	path = collections/ansible_collections/ansible/utils
 	url = https://github.com/ansible-collections/ansible.utils.git
+[submodule "collections/ansible_collections/community/mysql"]
+	path = collections/ansible_collections/community/mysql
+	url = https://github.com/ansible-collections/community.mysql.git
+[submodule "collections/ansible_collections/community/general"]
+	path = collections/ansible_collections/community/general
+	url = https://github.com/ansible-collections/community.general.git

@@ -1,0 +1,9 @@
+---
+# .ansible-lint
+
+profile: null
+
+skip_list:
+  - yaml[octal-values]
+  - name[missing]
+  - args[module]

@@ -1,0 +1,71 @@
+---
+- name: Forgejo
+  hosts: git
+  gather_facts: true
+  vars:
+
+    forgejo_version: 14.0.3
+
+  tasks:
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure sure pkgs is installed
+      ansible.builtin.apt:
+        pkg:
+          - git
+          - git-lfs
+          - mariadb-server
+          - python3-pymysql
+        state: present
+        cache_valid_time: 3600
+
+    - name: Ensure facts.d exists
+      ansible.builtin.file:
+        dest: /etc/ansible/facts.d
+        state: directory
+        mode: 0644
+
+    - name: Ensure git group exists
+      ansible.builtin.group:
+        name: git
+        state: present
+
+    - name: Ensure git user exists
+      ansible.builtin.user:
+        name: git
+        group: git
+        password: "!"
+        comment: Git Version Control
+        shell: /bin/bash
+        system: true
+
+    - name: Ensure database exists
+      community.mysql.mysql_db:
+        login_unix_socket: /run/mysqld/mysqld.sock
+        name: "{{ forgejo_db_name }}"
+        state: present
+        encoding: utf8mb4
+
+    - name: Ensure db user exists
+      community.mysql.mysql_user:
+        login_unix_socket: /run/mysqld/mysqld.sock
+        name: "{{ forgejo_db_user }}"
+        password: "{{ forgejo_db_user_password }}"
+        state: present
+        priv: "{{ forgejo_db_name }}.*:All,GRANT"
+
+    - name: Install forgejo
+      ansible.builtin.include_tasks:
+        file: ./tasks/forgejo/install.yml
+      when: ansible_local["forgejo"]["version"] is not defined
+
+    - name: Update forgejo
+      ansible.builtin.include_tasks:
+        file: ./tasks/forgejo/update.yml
+      when:
+        - ansible_local["forgejo"]["version"] is defined
+        - not ansible_local["forgejo"]["version"] == forgejo_version

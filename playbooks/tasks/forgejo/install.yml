@@ -1,0 +1,115 @@
+---
+- block:
+
+    - name: Download forgjo
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: /tmp/{{ item.name }}
+        mode: "{{ item.mode }}"
+      loop:
+        - url: https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64
+          name: forgejo-{{ forgejo_version }}-linux-amd64
+          mode: "0755"
+        - url: https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64.sha256
+          name: forgejo-{{ forgejo_version }}-linux-amd64.sha256
+          mode: "0644"
+
+    - name: Verify shasum
+      ansible.builtin.command:
+        cmd: /usr/bin/sha256sum -c forgejo-{{ forgejo_version }}-linux-amd64.sha256
+      args:
+        chdir: /tmp
+      changed_when: false
+
+    - name: Copy forgejo to /usr/local/bin
+      ansible.builtin.copy:
+        src: /tmp/forgejo-{{ forgejo_version }}-linux-amd64
+        dest: /usr/local/bin/forgejo
+        mode: 0755
+        remote_src: true
+
+  always:
+
+    - name: Remove /tmp/forgejo
+      ansible.builtin.file:
+        dest: /tmp/{{ item }}
+        state: absent
+      loop:
+        - forgejo-{{ forgejo_version }}-linux-amd64
+        - forgejo-{{ forgejo_version }}-linux-amd64.sha256
+
+- name: Ensure forgejo directories exists
+  ansible.builtin.file:
+    dest: "{{ item.dest }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - dest: /var/lib/forgejo
+      owner: git
+      group: git
+      mode: "0750"
+    - dest: /etc/forgejo
+      group: git
+      mode: "0770"
+
+- name: Create forgejo service
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Forgejo (Beyond coding. We forge.)
+      After=syslog.target
+      After=network.target
+      Wants=mariadb.service
+      After=mariadb.service
+
+      [Service]
+      RestartSec=2s
+      Type=simple
+      User=git
+      Group=git
+      WorkingDirectory=/var/lib/forgejo/
+      RuntimeDirectory=forgejo
+      ExecStart=/usr/local/bin/forgejo web --config /etc/forgejo/app.ini
+      Restart=always
+      Environment=USER=git HOME=/home/git FORGEJO_WORK_DIR=/var/lib/forgejo
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/forgejo.service
+    mode: 0644
+
+- name: Start forgejo service
+  ansible.builtin.systemd_service:
+    name: forgejo.service
+    state: started
+    enabled: true
+
+- name: Web installer step
+  ansible.builtin.pause:
+    prompt: |
+      ###############################################
+      # Finish the installer in a web browser       #
+      # url: https://{{ ansible_facts['fqdn'] }}    #
+      # Press Enter to continue                     #
+      ###############################################
+
+- name: Fix permission after installation
+  ansible.builtin.file:
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - dest: /etc/forgejo
+      mode: "0750"
+    - dest: /etc/forgejo/app.ini
+      mode: "0640"
+
+- name: Set local facts
+  ansible.builtin.copy:
+    content: "{{ _content | ansible.builtin.to_json }}"
+    dest: /etc/ansible/facts.d/forgejo.fact
+    mode: 0644
+  vars:
+    _content:
+      version: "{{ forgejo_version }}"
