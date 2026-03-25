@@ -49,7 +49,6 @@
         name: "{{ forgejo_db_name }}"
         state: present
         encoding: utf8mb4
-      when: _mariadb_info.databses[forgejo_db_name] is not defined
 
     - name: Ensure db user exists
       community.mysql.mysql_user:
@@ -58,3 +57,15 @@
         password: "{{ forgejo_db_user_password }}"
         state: present
         priv: "{{ forgejo_db_name }}.*:All,GRANT"
+
+    - name: Install forgejo
+      ansible.builtin.include_tasks:
+        file: ./tasks/forgejo/install.yml
+      when: ansible_local["forgejo"]["version"] is not defined
+
+    - name: Update forgejo
+      ansible.builtin.include_tasks:
+        file: ./tasks/forgejo/update.yml
+      when:
+        - ansible_local["forgejo"]["version"] is defined
+        - not ansible_local["forgejo"]["version"] == forgejo_version
