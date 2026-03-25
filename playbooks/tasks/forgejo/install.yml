@@ -91,7 +91,7 @@
     prompt: |
       ###############################################
       # Finish the installer in a web browser       #
-      # url: http://{{ ansible_facts['fqdn'] }}:3000    #
+      # url: https://{{ ansible_facts['fqdn'] }}    #
       # Press Enter to continue                     #
       ###############################################
 
