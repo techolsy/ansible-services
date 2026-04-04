@@ -45,7 +45,7 @@
 
 - name: Set local facts
   ansible.builtin.copy:
-    content: "{{ _content | ansible.builtin.to_json }}"
+    content: "{{ _content | ansible.builtin.to_json(indent=2) }}"
     dest: /etc/ansible/facts.d/forgejo.fact
     mode: 0644
   vars:
