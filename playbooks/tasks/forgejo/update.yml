@@ -21,6 +21,11 @@
         chdir: /tmp
       changed_when: false
 
+    - name: Stop forgjo service
+      ansible.builtin.systemd_service:
+        name: forgejo.service
+        state: stopped
+
     - name: Copy forgejo to /usr/local/bin
       ansible.builtin.copy:
         src: /tmp/forgejo-{{ forgejo_version }}-linux-amd64
@@ -30,6 +35,11 @@
 
   always:
 
+    - name: Start forgejo service
+      ansible.builtin.systemd_service:
+        name: forgejo.service
+        state: started
+
     - name: Remove /tmp/forgejo
       ansible.builtin.file:
         dest: /tmp/{{ item }}
@@ -37,11 +47,6 @@
       loop:
         - forgejo-{{ forgejo_version }}-linux-amd64
         - forgejo-{{ forgejo_version }}-linux-amd64.sha256
-
-- name: Start forgejo service
-  ansible.builtin.systemd_service:
-    name: forgejo.service
-    state: restarted
 
 - name: Set local facts
   ansible.builtin.copy:
