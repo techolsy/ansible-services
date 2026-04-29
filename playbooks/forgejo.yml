@@ -4,7 +4,7 @@
   gather_facts: true
   vars:
 
-    forgejo_version: 15.0.0
+    forgejo_version: 15.0.1
 
   tasks:
 
