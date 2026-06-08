@@ -1,0 +1,16 @@
+---
+- name: Actions runners
+  hosts: runner
+  gather_facts: true
+  vars:
+
+    version: 12.10.1
+
+  tasks:
+
+    - name: Get apt package facts
+      techolsy.exmod.apt_package_facts:
+
+    - ansible.builtin.import_tasks:
+        file: tasks/docker/install.yml
+      when: '"docker-ce" not in ansible_facts.apt_packages'
