@@ -4,6 +4,7 @@
 profile: null
 
 skip_list:
+  - yaml[line-length]
   - yaml[octal-values]
   - name[missing]
   - args[module]

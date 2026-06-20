@@ -1,0 +1,104 @@
+---
+- vars:
+
+    __forgejo_runner_binary: forgejo-runner
+    __forgejo_runner_binary_version: 12.12.0
+    __forgejo_runner_installed_version: '{{ ansible_local["forgejo_runner"]["version"] }}'
+    __forgejo_runner_temp_dir: /tmp/forgejo_runner
+
+  when: __forgejo_runner_installed_version | default('') != __forgejo_runner_binary_version
+
+  block:
+
+    - name: Ensure temporary forgejo-runner directory is present
+      ansible.builtin.file:
+        dest: "{{ __forgejo_runner_temp_dir }}"
+        state: directory
+        mode: 0644
+
+    - name: Copy forgejo-runner tar file and sig
+      ansible.builtin.copy:
+        src: files/{{ item }}
+        dest: "{{ __forgejo_runner_temp_dir }}"
+        mode: 0755
+      loop:
+        - "{{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}.tar"
+        - "{{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}.sig"
+
+    - name: Unarchive forgejo-runner tar file
+      ansible.builtin.unarchive:
+        src: "{{ __forgejo_runner_temp_dir }}/{{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}.tar"
+        dest: "{{ __forgejo_runner_temp_dir }}"
+        remote_src: true
+
+    - name: Verify forgejo-runner binary
+      ansible.builtin.command:
+        cmd: |
+          /usr/bin/gpg2 --verify {{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}.sig {{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}
+      changed_when: false
+      args:
+        chdir: "{{ __forgejo_runner_temp_dir }}"
+
+    - name: Gather systemd info
+      techolsy.exmod.systemd_info:
+
+    - name: Stop forgejo-runner service if exist
+      ansible.builtin.systemd_service:
+        name: forgejo-runner.service
+        state: stopped
+      when: "'forgejo-runner.service' in ansible_facts['units']"
+
+    - name: Ensure forgejo-runner is absent in bin
+      ansible.builtin.file:
+        dest: /usr/local/bin/{{ __forgejo_runner_binary }}
+        state: absent
+
+    - name: Copy forgejo-runner to bin
+      ansible.builtin.copy:
+        src: "{{ __forgejo_runner_temp_dir }}/{{ __forgejo_runner_binary }}-{{ __forgejo_runner_binary_version }}"
+        dest: /usr/local/bin/{{ __forgejo_runner_binary }}
+        mode: 0755
+        remote_src: true
+      notify: Restart forgejo-runner
+
+    - name: Copy forgejo-runner systemd config
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/forgejo-runner.service
+        content: "{{ _content | community.general.to_ini }}"
+        mode: 0644
+      vars:
+        _content:
+          Unit:
+            Description: Forgejo Runner
+            Documentation: https://forgejo.org/docs/latest/admin/actions/
+            After: docker.service
+          Service:
+            ExecStart: /usr/local/bin/forgejo-runner daemon -c /home/runner/runner-config.yml
+            ExecReload: /bin/kill -s HUP $MAINPID
+            User: runner
+            WorkingDirectory: /home/runner
+            Restart: on-failure
+            TimeoutSec: 0
+            RestartSec: 10
+          Install:
+            WantedBy: multi-user.target
+      notify:
+        - Systemd daemon-reload
+        - Restart forgejo-runner
+
+    - name: Set forgejo-runner facts
+      ansible.builtin.copy:
+        dest: /etc/ansible/facts.d/forgejo_runner.fact
+        content: "{{ _content | ansible.builtin.to_nice_json }}"
+        mode: 0644
+      vars:
+        _content:
+          name: "{{ __forgejo_runner_binary }}"
+          version: "{{ __forgejo_runner_binary_version }}"
+
+  always:
+
+    - name: Ensure temporary forgejo_runner directory is absent
+      ansible.builtin.file:
+        dest: "{{ __forgejo_runner_temp_dir }}"
+        state: absent

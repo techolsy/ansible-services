@@ -1,0 +1,132 @@
+---
+- name: Actions runners
+  hosts: runner
+  gather_facts: false
+  handlers:
+
+    - name: Systemd daemon-reload
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Restart forgejo-runner
+      ansible.builtin.systemd_service:
+        name: forgejo-runner.service
+        state: restarted
+
+  pre_tasks:
+
+    - ansible.builtin.setup:
+
+  tasks:
+
+    - name: Ensure hosts file have non loopback ip for host
+      ansible.builtin.lineinfile:
+        dest: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "{{ ansible_inventory_ip }} {{ ansible_inventory_hostname }} {{ ansible_inventory_hostname.split('.')[0] }}"
+        mode: 0644
+
+    - name: Get apt package facts
+      techolsy.exmod.apt_package_facts:
+
+    - ansible.builtin.import_tasks:
+        file: tasks/docker/install.yml
+      when: '"docker-ce" not in ansible_facts.apt_packages'
+
+    - name: Ensure group group exists
+      ansible.builtin.group:
+        name: runner
+        state: present
+
+    - name: Ensure runner user exist
+      ansible.builtin.user:
+        name: runner
+        comment: Git actions runner
+        groups: runner,docker
+        password: '!'
+
+    - name: Register runner
+      ansible.builtin.import_tasks:
+        file: tasks/runner/register.yml
+      when: ansible_local['runner_register'] is undefined
+
+    - name: Gather local facts
+      ansible.builtin.setup:
+        filter: 'ansible_local'
+
+    - name: Copy runner config
+      ansible.builtin.copy:
+        dest: /home/runner/runner-config.yml
+        content: "{{ _content | ansible.builtin.to_yaml(indent=2, sort_keys=false) }}"
+        mode: 0644
+        owner: runner
+        group: runner
+      vars:
+        _content:
+          log:
+            level: info
+            job_level: info
+          runner:
+            capacity: 1
+            timeout: 3h
+            shutdown_timeout: 3h
+            insecure: false
+            fetch_timeout: 30s
+            fetch_interval: 2s
+            report_interval: 1s
+          container:
+            enable_ipv6: false
+            privileged: true
+            force_pull: false
+            force_rebuild: false
+          server:
+            connections:
+              forgejo:
+                url: https://{{ git_host }}/
+                uuid: "{{ ansible_local['runner_register']['uuid'] }}"
+                token: "{{ ansible_local['runner_register']['secret'] }}"
+                labels:
+                  - docker:docker://docker.io/library/node:lts-trixie
+      notify: Restart forgejo-runner
+
+    - name: Import install task
+      ansible.builtin.import_tasks:
+        file: tasks/runner/install.yml
+
+    - name: Copy docker cleaner service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker-cleaner.service
+        content: "{{ _content | community.general.to_ini }}"
+        mode: 0644
+      vars:
+        _content:
+          Unit:
+            Description: docker cleaner
+          Service:
+            Type: simple
+            ExecStart: /usr/bin/docker system prune -fa
+          Install:
+            WantedBy: multi-user.target
+
+    - name: Copy docker cleaner timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker-cleaner.timer
+        content: "{{ _content | community.general.to_ini }}"
+        mode: 0644
+      vars:
+        _content:
+          Unit:
+            Description: docker cleaner timer
+
+          Timer:
+            OnCalendar: '*-*-* 05:00:00'
+            Persistent: true
+
+          Install:
+            WantedBy: timers.target
+
+    - name: Ensure docker cleaner timer is started
+      ansible.builtin.systemd_service:
+        name: docker-cleaner.timer
+        state: started
+        enabled: true
