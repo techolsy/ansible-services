@@ -1,0 +1,27 @@
+---
+- name: Generate a 40-character secret string
+  ansible.builtin.set_fact:
+    secret_string: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') | hash('sha1') }}"
+
+- name: Register forgejo runner
+  become: true
+  become_user: git
+  delegate_to: "{{ git_host }}"
+  ansible.builtin.command:
+    cmd: >
+      forgejo forgejo-cli actions register
+      --config /etc/forgejo/app.ini
+      --name {{ inventory_hostname }}
+      --secret {{ secret_string }}
+  register: _register_cmd
+  changed_when: _register_cmd.rc == 0
+
+- name: Create register facts
+  ansible.builtin.copy:
+    dest: /etc/ansible/facts.d/runner_register.fact
+    content: "{{ _content | ansible.builtin.to_nice_json }}"
+    mode: 0644
+  vars:
+    _content:
+      uuid: "{{ _register_cmd.stdout }}"
+      secret: "{{ secret_string }}"
