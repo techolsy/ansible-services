@@ -11,6 +11,7 @@
     - name: Restart forgejo-runner
       ansible.builtin.systemd_service:
         name: forgejo-runner.service
+        enabled: true
         state: restarted
 
   pre_tasks:
