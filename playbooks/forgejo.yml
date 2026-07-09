@@ -4,7 +4,7 @@
   gather_facts: true
   vars:
 
-    forgejo_version: 15.0.3
+    forgejo_version: 15.0.4
 
   tasks:
 
@@ -57,6 +57,10 @@
         password: "{{ forgejo_db_user_password }}"
         state: present
         priv: "{{ forgejo_db_name }}.*:All,GRANT"
+
+    - name: Gather local facts
+      ansible.builtin.setup:
+        filter: 'ansible_local'
 
     - name: Install forgejo
       ansible.builtin.include_tasks:
