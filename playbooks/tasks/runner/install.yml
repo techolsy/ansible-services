@@ -2,7 +2,7 @@
 - vars:
 
     __forgejo_runner_binary: forgejo-runner
-    __forgejo_runner_binary_version: 12.13.0
+    __forgejo_runner_binary_version: 12.13.1
     __forgejo_runner_installed_version: '{{ ansible_local["forgejo_runner"]["version"] }}'
     __forgejo_runner_temp_dir: /tmp/forgejo_runner
 
