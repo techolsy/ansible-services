@@ -4,7 +4,7 @@
   gather_facts: true
   vars:
 
-    forgejo_version: 16.0.2
+    forgejo_version: 16.0.3
 
   tasks:
 
@@ -27,7 +27,7 @@
       ansible.builtin.file:
         dest: /etc/ansible/facts.d
         state: directory
-        mode: 0644
+        mode: 0755
 
     - name: Ensure git group exists
       ansible.builtin.group:
