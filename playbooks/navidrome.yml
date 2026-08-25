@@ -1,0 +1,17 @@
+---
+- name: Navidrome setup
+  hosts: navidrome
+  gather_facts: false
+  handlers:
+
+    - name: Restart navidrome
+      ansible.builtin.systemd_service:
+        name: navidrome.service
+        state: restarted
+        enabled: true
+
+  tasks:
+
+    - name: Gather local facts
+      ansible.builtin.setup:
+        filter: local
