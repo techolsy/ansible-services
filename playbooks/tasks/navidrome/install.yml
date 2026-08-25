@@ -1,0 +1,66 @@
+---
+- vars:
+
+    __navidrome_binary: navidrome
+    __navidrome_binary_version: 0.63.2
+    __navidrome_binary_and_version: "{{ __navidrome_binary }}-{{ __navidrome_binary_version }}"
+    __navidrome_installed_version: '{{ ansible_local["navidrome"]["version"] }}'
+    __navidrome_temp_dir: /tmp/navidrome
+
+  when: __navidrome_installed_version | default('') != __navidrome_binary_version
+
+  block:
+
+    - name: Ensure temp directory is present
+      ansible.builtin.file:
+        dest: "{{ __navidrome_temp_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: Copy navidrome tar file and sig
+      ansible.builtin.copy:
+        src: files/{{ item }}
+        dest: "{{ navidrome_temp_dir }}"
+        mode: 0755
+      loop:
+        - "{{ __navidrome_binary_and_version }}.tar"
+        - "{{ __navidrome_binary_and_version }}.sig"
+
+    - name: Unarchive navidrome tar file
+      ansible.builtin.unarchive:
+        src: "{{ __navidrome_temp_dir }}/{{ __navidrome_binary_and_version }}.tar"
+        dest: "{{ __navidrome_temp_dir }}"
+        remote_src: true
+
+    - name: Verify navidrome binary
+      ansible.builtin.command:
+        cmd: |
+          /usr/bin/gpg2 --verify {{ __navidrome_binary_and_version }}.sig {{ __navidrome_binary_and_version }}
+      changed_when: false
+      args:
+        chdir: "{{ __navidrome_temp_dir }}"
+
+    - name: Gather systemd info
+      techolsy.exmod.systemd_info:
+
+    - name: Stop navidrome service if exist
+      ansible.builtin.systemd_service:
+        name: navidrome.service
+        state: stopped
+      when: "'navidrome.service' in ansible_facts['units']"
+
+    - name: Copy navidrome binary
+      ansible.builtin.copy:
+        src: "{{ __navidrome_temp_dir }}/{{ __navidrome_binary_and_version }}"
+        dest: /usr/local/bin/{{ __navidrome_binary }}
+        mode: 0755
+        remote_src: true
+      notify: Restart navidrome
+
+    - name: Copy navidrome systemd config
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/navidrome.service
+        content: "{{ _content | community.general.to_ini }}"
+        mode: 0644
+      vars:
+        _content:
