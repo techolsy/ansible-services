@@ -1,0 +1,62 @@
+---
+- name: Navidrome setup
+  hosts: navidrome
+  gather_facts: false
+  handlers:
+
+    - name: Systemd daemon-reload
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Restart navidrome
+      ansible.builtin.systemd_service:
+        name: navidrome.service
+        state: restarted
+        enabled: true
+
+  tasks:
+
+    - name: Gather local facts
+      ansible.builtin.setup:
+        filter: local
+
+    - name: Ensure navidrome group exist
+      ansible.builtin.group:
+        name: navidrome
+        state: present
+
+    - name: Ensure navidrome user exist
+      ansible.builtin.user:
+        name: navidrome
+        group: navidrome
+        password: "!"
+        comment: Navidrome Music Player User
+        shell: /bin/bash
+        system: true
+
+    - name: Ensure navidrome folders exist
+      ansible.builtin.file:
+        dest: "{{ item }}"
+        state: directory
+        owner: navidrome
+        group: navidrome
+        mode: 0755
+      loop:
+        - /opt/navidrome
+        - /opt/navidrome/music
+
+    - name: Copy navidrome config
+      ansible.builtin.copy:
+        dest: /opt/navidrome/config.toml
+        content: "{{ _content | community.general.to_toml }}"
+        mode: 0644
+      vars:
+        _content:
+          LogLevel: DEBUG
+          Scanner.Schedule: '@every 24h'
+          TranscodingCacheSize: 150MiB
+          MusicFolder: music
+
+    - name: Import navidrome install task
+      ansible.builtin.import_tasks:
+        file: tasks/navidrome/install.yml
