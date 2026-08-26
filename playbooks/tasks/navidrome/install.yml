@@ -20,7 +20,7 @@
     - name: Copy navidrome tar file and sig
       ansible.builtin.copy:
         src: files/{{ item }}
-        dest: "{{ navidrome_temp_dir }}"
+        dest: "{{ __navidrome_temp_dir }}"
         mode: 0755
       loop:
         - "{{ __navidrome_binary_and_version }}.tar"
@@ -64,3 +64,33 @@
         mode: 0644
       vars:
         _content:
+          Unit:
+            Description: Navidrome
+          Service:
+            ExecStart: /usr/local/bin/navidrome --configfile "config.toml"
+            User: navidrome
+            WorkingDirectory: /opt/navidrome
+            Restart: on-failure
+            TimeoutSec: 0
+            RestartSec: 10
+          Install:
+            WantedBy: multi-user.target
+      notify:
+        - Systemd daemon-reload
+        - Restart navidrome
+
+    - name: Set navidrome facts
+      ansible.builtin.copy:
+        dest: /etc/ansible/facts.d/navidrome.fact
+        content: "{{ _content | ansible.builtin.to_nice_json }}"
+        mode: 0644
+      vars:
+        _content:
+          name: "{{ __navidrome_binary }}"
+          version: "{{ __navidrome_binary_version }}"
+  always:
+
+    - name: Ensure temporary navidrome directory is absent
+      ansible.builtin.file:
+        dest: "{{ __navidrome_temp_dir }}"
+        state: absent
