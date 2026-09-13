@@ -2,7 +2,7 @@
 - vars:
 
     __navidrome_binary: navidrome
-    __navidrome_binary_version: 0.63.2
+    __navidrome_binary_version: 0.64.0
     __navidrome_binary_and_version: "{{ __navidrome_binary }}-{{ __navidrome_binary_version }}"
     __navidrome_installed_version: '{{ ansible_local["navidrome"]["version"] }}'
     __navidrome_temp_dir: /tmp/navidrome
